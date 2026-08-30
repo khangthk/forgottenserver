@@ -84,7 +84,7 @@ public:
 
 	void onAttackedCreatureDisappear(bool isLogout) override;
 
-	void onCreatureAppear(Creature* creature, bool isLogin) override;
+	void onCreatureAppear(Creature* creature, bool, MagicEffectClasses) override;
 	void onRemoveCreature(Creature* creature, bool isLogout) override;
 	void onCreatureMove(Creature* creature, const Tile* newTile, const Position& newPos, const Tile* oldTile,
 	                    const Position& oldPos, bool teleport) override;
@@ -98,7 +98,8 @@ public:
 	void onWalk() override;
 	void onWalkComplete() override;
 	bool getNextStep(Direction& direction, uint32_t& flags) override;
-	void onFollowCreatureComplete(const Creature* creature) override;
+	void goToFollowCreature() override;
+	void onFollowCreatureComplete();
 
 	void onThink(uint32_t interval) override;
 
@@ -218,7 +219,6 @@ private:
 	uint32_t getDamageImmunities() const override { return mType->info.damageImmunities; }
 	uint32_t getConditionImmunities() const override { return mType->info.conditionImmunities; }
 	void getPathSearchParams(const Creature* creature, FindPathParams& fpp) const override;
-	bool useCacheMap() const override { return !randomStepping; }
 
 	friend class LuaScriptInterface;
 };

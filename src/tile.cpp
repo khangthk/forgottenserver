@@ -118,8 +118,6 @@ uint32_t Tile::getDownItemCount() const
 	return 0;
 }
 
-std::string Tile::getDescription(int32_t) const { return "You dont know why, but you cant see anything!"; }
-
 Teleport* Tile::getTeleportItem() const
 {
 	if (!hasFlag(TILESTATE_TELEPORT)) {
@@ -359,26 +357,19 @@ void Tile::onAddTileItem(Item* item)
 
 	setTileFlags(item);
 
-	const Position& cylinderMapPos = getPosition();
-
 	SpectatorVec spectators;
-	g_game.map.getSpectators(spectators, cylinderMapPos, true);
+	g_game.map.getSpectators(spectators, tilePos, true);
 
 	// send to client
 	for (Creature* spectator : spectators) {
 		if (Player* spectatorPlayer = spectator->getPlayer()) {
-			spectatorPlayer->sendAddTileItem(this, cylinderMapPos, item);
+			spectatorPlayer->sendAddTileItem(this, tilePos, item);
 		}
-	}
-
-	// event methods
-	for (Creature* spectator : spectators) {
-		spectator->onAddTileItem(this, cylinderMapPos);
 	}
 
 	if ((!hasFlag(TILESTATE_PROTECTIONZONE) || getBoolean(ConfigManager::CLEAN_PROTECTION_ZONES)) &&
 	    item->isCleanable()) {
-		if (!dynamic_cast<HouseTile*>(this)) {
+		if (!getHouseTile()) {
 			g_game.addTileToClean(this);
 		}
 	}
@@ -398,27 +389,25 @@ void Tile::onUpdateTileItem(Item* oldItem, const ItemType& oldType, Item* newIte
 	} else if (oldItem->hasProperty(CONST_PROP_MOVEABLE) || oldItem->getContainer()) {
 		auto it = g_game.browseFields.find(this);
 		if (it != g_game.browseFields.end()) {
-			Cylinder* oldParent = oldItem->getParent();
+			const auto oldParent = oldItem->getParent();
 			it->second->removeThing(oldItem, oldItem->getItemCount());
 			oldItem->setParent(oldParent);
 		}
 	}
 
-	const Position& cylinderMapPos = getPosition();
-
 	SpectatorVec spectators;
-	g_game.map.getSpectators(spectators, cylinderMapPos, true);
+	g_game.map.getSpectators(spectators, tilePos, true);
 
 	// send to client
 	for (Creature* spectator : spectators) {
 		if (Player* spectatorPlayer = spectator->getPlayer()) {
-			spectatorPlayer->sendUpdateTileItem(this, cylinderMapPos, newItem);
+			spectatorPlayer->sendUpdateTileItem(this, tilePos, newItem);
 		}
 	}
 
 	// event methods
 	for (Creature* spectator : spectators) {
-		spectator->onUpdateTileItem(this, cylinderMapPos, oldItem, oldType, newItem, newType);
+		spectator->onUpdateTileItem(this, tilePos, oldItem, oldType, newItem, newType);
 	}
 }
 
@@ -433,20 +422,19 @@ void Tile::onRemoveTileItem(const SpectatorVec& spectators, const std::vector<in
 
 	resetTileFlags(item);
 
-	const Position& cylinderMapPos = getPosition();
 	const ItemType& iType = Item::items[item->getID()];
 
 	// send to client
 	size_t i = 0;
 	for (Creature* spectator : spectators) {
 		if (Player* tmpPlayer = spectator->getPlayer()) {
-			tmpPlayer->sendRemoveTileThing(cylinderMapPos, oldStackPosVector[i++]);
+			tmpPlayer->sendRemoveTileThing(tilePos, oldStackPosVector[i++]);
 		}
 	}
 
 	// event methods
 	for (Creature* spectator : spectators) {
-		spectator->onRemoveTileItem(this, cylinderMapPos, iType, item);
+		spectator->onRemoveTileItem(this, tilePos, iType, item);
 	}
 
 	if (!hasFlag(TILESTATE_PROTECTIONZONE) || getBoolean(ConfigManager::CLEAN_PROTECTION_ZONES)) {
@@ -467,17 +455,6 @@ void Tile::onRemoveTileItem(const SpectatorVec& spectators, const std::vector<in
 		if (!ret) {
 			g_game.removeTileToClean(this);
 		}
-	}
-}
-
-void Tile::onUpdateTile(const SpectatorVec& spectators)
-{
-	const Position& cylinderMapPos = getPosition();
-
-	// send to clients
-	for (Creature* spectator : spectators) {
-		assert(dynamic_cast<Player*>(spectator) != nullptr);
-		static_cast<Player*>(spectator)->sendUpdateTile(this, cylinderMapPos);
 	}
 }
 
@@ -582,7 +559,7 @@ ReturnValue Tile::queryAdd(int32_t, const Thing& thing, uint32_t, uint32_t flags
 				}
 			}
 
-			if (!player->getParent() && hasFlag(TILESTATE_NOLOGOUT)) {
+			if (!player->hasParent() && hasFlag(TILESTATE_NOLOGOUT)) {
 				// player is trying to login to a "no logout" tile
 				return RETURNVALUE_NOTPOSSIBLE;
 			}
@@ -839,8 +816,6 @@ Tile* Tile::queryDestination(int32_t&, const Thing&, Item** destItem, uint32_t& 
 	return destTile;
 }
 
-void Tile::addThing(Thing* thing) { addThing(0, thing); }
-
 void Tile::addThing(int32_t, Thing* thing)
 {
 	Creature* creature = thing->getCreature();
@@ -906,7 +881,7 @@ void Tile::addThing(int32_t, Thing* thing)
 			if (items) {
 				for (auto it = items->getBeginTopItem(), end = items->getEndTopItem(); it != end; ++it) {
 					// Note: this is different from internalAddThing
-					if (itemType.alwaysOnTopOrder <= Item::items[(*it)->getID()].alwaysOnTopOrder) {
+					if (itemType.alwaysOnTopOrder < Item::items[(*it)->getID()].alwaysOnTopOrder) {
 						items->insert(it, item);
 						isInserted = true;
 						break;
@@ -1285,11 +1260,7 @@ int32_t Tile::getStackposOfItem(const Player* player, const Item* item) const
 	return -1;
 }
 
-size_t Tile::getFirstIndex() const { return 0; }
-
-size_t Tile::getLastIndex() const { return getThingCount(); }
-
-uint32_t Tile::getItemTypeCount(uint16_t itemId, int32_t subType /*= -1*/, bool) const
+uint32_t Tile::getItemTypeCount(uint16_t itemId, int32_t subType /*= -1*/) const
 {
 	uint32_t count = 0;
 	if (ground && ground->getID() == itemId) {
@@ -1339,8 +1310,8 @@ Thing* Tile::getThing(size_t index) const
 	return nullptr;
 }
 
-void Tile::postAddNotification(Thing* thing, const Cylinder* oldParent, int32_t index,
-                               cylinderlink_t link /*= LINK_OWNER*/)
+void Tile::postAddNotification(Thing* thing, const Thing* oldParent, int32_t index,
+                               ReceiverLink_t link /*= LINK_OWNER*/)
 {
 	SpectatorVec spectators;
 	g_game.map.getSpectators(spectators, getPosition(), true, true);
@@ -1396,17 +1367,22 @@ void Tile::postAddNotification(Thing* thing, const Cylinder* oldParent, int32_t 
 	}
 }
 
-void Tile::postRemoveNotification(Thing* thing, const Cylinder* newParent, int32_t index, cylinderlink_t)
+void Tile::postRemoveNotification(Thing* thing, const Thing* newParent, int32_t index, ReceiverLink_t)
 {
-	SpectatorVec spectators;
-	g_game.map.getSpectators(spectators, getPosition(), true, true);
+	const auto thingCount = getThingCount();
 
-	if (getThingCount() > 8) {
-		onUpdateTile(spectators);
-	}
+	SpectatorVec spectators;
+	g_game.map.getSpectators(spectators, tilePos, true, true);
 
 	for (Creature* spectator : spectators) {
 		assert(dynamic_cast<Player*>(spectator) != nullptr);
+
+		if (thingCount > TILE_UPDATE_THRESHOLD) {
+			// If the tile contains more than the defined threshold of things,
+			// send a full tile update to the player to keep the client’s view in sync
+			static_cast<Player*>(spectator)->sendUpdateTile(this, tilePos);
+		}
+
 		static_cast<Player*>(spectator)->postRemoveNotification(thing, newParent, index, LINK_NEAR);
 	}
 
@@ -1421,8 +1397,6 @@ void Tile::postRemoveNotification(Thing* thing, const Cylinder* newParent, int32
 		}
 	}
 }
-
-void Tile::internalAddThing(Thing* thing) { internalAddThing(0, thing); }
 
 void Tile::internalAddThing(uint32_t, Thing* thing)
 {
@@ -1460,7 +1434,7 @@ void Tile::internalAddThing(uint32_t, Thing* thing)
 		if (itemType.alwaysOnTop) {
 			bool isInserted = false;
 			for (auto it = items->getBeginTopItem(), end = items->getEndTopItem(); it != end; ++it) {
-				if (Item::items[(*it)->getID()].alwaysOnTopOrder > itemType.alwaysOnTopOrder) {
+				if (Item::items[(*it)->getID()].alwaysOnTopOrder >= itemType.alwaysOnTopOrder) {
 					items->insert(it, item);
 					isInserted = true;
 					break;
@@ -1605,13 +1579,32 @@ bool Tile::isMoveableBlocking() const { return !ground || hasFlag(TILESTATE_BLOC
 Item* Tile::getUseItem(int32_t index) const
 {
 	const TileItemVector* items = getItemList();
+
+	// no items, get ground
 	if (!items || items->size() == 0) {
 		return ground;
 	}
 
+	// try getting thing by index
 	if (Thing* thing = getThing(index)) {
-		return thing->getItem();
+		Item* thingItem = thing->getItem();
+		if (thingItem) {
+			return thingItem;
+		}
 	}
 
-	return nullptr;
+	// try getting top movable item
+	Item* topDownItem = getTopDownItem();
+	if (topDownItem) {
+		return topDownItem;
+	}
+
+	// try getting door
+	for (auto it = items->rbegin(), end = items->rend(); it != end; ++it) {
+		if ((*it)->getDoor()) {
+			return (*it)->getItem();
+		}
+	}
+
+	return *items->begin();
 }

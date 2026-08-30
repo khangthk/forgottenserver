@@ -12,10 +12,7 @@
 #include "http/http.h"
 #include "iomarket.h"
 #include "monsters.h"
-#include "npc.h"
 #include "outfit.h"
-#include "protocollogin.h"
-#include "protocolold.h"
 #include "protocolstatus.h"
 #include "rsa.h"
 #include "scheduler.h"
@@ -178,14 +175,8 @@ void mainLoader(ServiceManager* services)
 	}
 
 	std::cout << ">> Loading lua monsters" << std::endl;
-	if (!g_scripts->loadScripts("monster/lua", false, false)) {
+	if (!g_scripts->loadScripts("monster", false, false)) {
 		startupErrorMessage("Failed to load lua monsters");
-		return;
-	}
-
-	std::cout << ">> Loading lua npcs" << std::endl;
-	if (!Npcs::loadNpcs(false)) {
-		startupErrorMessage("Failed to load lua npcs");
 		return;
 	}
 
@@ -223,17 +214,15 @@ void mainLoader(ServiceManager* services)
 
 	// Game client protocols
 	services->add<ProtocolGame>(static_cast<uint16_t>(getNumber(ConfigManager::GAME_PORT)));
-	services->add<ProtocolLogin>(static_cast<uint16_t>(getNumber(ConfigManager::LOGIN_PORT)));
 
 	// OT protocols
 	services->add<ProtocolStatus>(static_cast<uint16_t>(getNumber(ConfigManager::STATUS_PORT)));
 
-	// Legacy login protocol
-	services->add<ProtocolOld>(static_cast<uint16_t>(getNumber(ConfigManager::LOGIN_PORT)));
-
+#ifdef HTTP
 	// HTTP server
-	tfs::http::start(getString(ConfigManager::IP), getNumber(ConfigManager::HTTP_PORT),
-	                 getNumber(ConfigManager::HTTP_WORKERS));
+	tfs::http::start(getBoolean(ConfigManager::BIND_ONLY_GLOBAL_ADDRESS), getString(ConfigManager::IP),
+	                 getNumber(ConfigManager::HTTP_PORT), getNumber(ConfigManager::HTTP_WORKERS));
+#endif
 
 	RentPeriod_t rentPeriod;
 	std::string strRentPeriod = boost::algorithm::to_lower_copy(getString(ConfigManager::HOUSE_RENT_PERIOD));
@@ -252,8 +241,8 @@ void mainLoader(ServiceManager* services)
 
 	g_game.map.houses.payHouses(rentPeriod);
 
-	IOMarket::checkExpiredOffers();
-	IOMarket::getInstance().updateStatistics();
+	tfs::iomarket::checkExpiredOffers();
+	tfs::iomarket::updateStatistics();
 
 	std::cout << ">> Loaded all modules, server starting up..." << std::endl;
 

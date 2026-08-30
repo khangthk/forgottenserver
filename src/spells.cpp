@@ -15,7 +15,6 @@
 
 extern Game g_game;
 extern Spells* g_spells;
-extern Events* g_events;
 extern Monsters g_monsters;
 extern LuaEnvironment g_luaEnvironment;
 
@@ -530,7 +529,7 @@ bool Spell::playerSpellCheck(Player* player) const
 		return false;
 	}
 
-	if (!g_events->eventPlayerOnSpellCheck(player, this)) {
+	if (!tfs::events::player::onSpellCheck(player, this)) {
 		return false;
 	}
 
@@ -1220,4 +1219,17 @@ bool RuneSpell::executeCastSpell(Creature* creature, const LuaVariant& var, bool
 	tfs::lua::pushBoolean(L, isHotkey);
 
 	return scriptInterface->callFunction(3);
+}
+
+bool RuneSpell::canUse(const Player* player) const
+{
+	if (player->hasFlag(PlayerFlag_CannotUseSpells)) {
+		return false;
+	}
+
+	if (player->hasFlag(PlayerFlag_IgnoreSpellCheck)) {
+		return true;
+	}
+
+	return hasVocationSpellMap(player->getVocationId());
 }

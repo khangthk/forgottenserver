@@ -5,16 +5,16 @@
 #define FS_PLAYER_H
 
 #include "creature.h"
-#include "cylinder.h"
+#include "depotchest.h"
 #include "depotlocker.h"
 #include "enums.h"
 #include "groups.h"
 #include "guild.h"
+#include "inbox.h"
 #include "protocolgame.h"
 #include "town.h"
 #include "vocation.h"
 
-class DepotChest;
 class House;
 struct Mount;
 class NetworkMessage;
@@ -72,7 +72,7 @@ struct OpenContainer
 	uint16_t index;
 };
 
-static constexpr int16_t MINIMUM_SKILL_LEVEL = 10;
+inline constexpr int16_t MINIMUM_SKILL_LEVEL = 10;
 
 struct Skill
 {
@@ -83,12 +83,12 @@ struct Skill
 
 using MuteCountMap = std::map<uint32_t, uint32_t>;
 
-static constexpr int32_t PLAYER_MAX_SPEED = 1500;
-static constexpr int32_t PLAYER_MIN_SPEED = 10;
+inline constexpr int32_t PLAYER_MAX_SPEED = 1500;
+inline constexpr int32_t PLAYER_MIN_SPEED = 10;
 
-static constexpr int32_t NOTIFY_DEPOT_BOX_RANGE = 1;
+inline constexpr int32_t NOTIFY_DEPOT_BOX_RANGE = 1;
 
-class Player final : public Creature, public Cylinder
+class Player final : public Creature
 {
 public:
 	explicit Player(ProtocolGame_ptr p);
@@ -102,6 +102,9 @@ public:
 
 	Player* getPlayer() override { return this; }
 	const Player* getPlayer() const override { return this; }
+
+	Thing* getReceiver() override final { return this; }
+	const Thing* getReceiver() const override final { return this; }
 
 	void setID() final;
 
@@ -182,7 +185,13 @@ public:
 	void setLastWalkthroughAttempt(int64_t walkthroughAttempt) { lastWalkthroughAttempt = walkthroughAttempt; }
 	void setLastWalkthroughPosition(Position walkthroughPosition) { lastWalkthroughPosition = walkthroughPosition; }
 
-	Inbox* getInbox() const { return inbox; }
+	Inbox_ptr getInbox()
+	{
+		if (!inbox) {
+			inbox = std::make_shared<Inbox>(ITEM_INBOX);
+		}
+		return inbox;
+	}
 
 	StoreInbox* getStoreInbox() const { return storeInbox; }
 
@@ -292,9 +301,9 @@ public:
 	time_t getLastLogout() const { return lastLogout; }
 
 	const Position& getLoginPosition() const { return loginPosition; }
-	const Position& getTemplePosition() const { return town->getTemplePosition(); }
-	Town* getTown() const { return town; }
-	void setTown(Town* town) { this->town = town; }
+	const Position& getTemplePosition() const { return town->templePosition; }
+	const Town* getTown() const { return town; }
+	void setTown(const Town* town) { this->town = town; }
 
 	void clearModalWindows();
 	bool hasModalWindowOpen(uint32_t modalWindowId) const;
@@ -356,7 +365,7 @@ public:
 	void addConditionSuppressions(uint32_t conditions);
 	void removeConditionSuppressions(uint32_t conditions);
 
-	DepotChest* getDepotChest(uint32_t depotId, bool autoCreate);
+	DepotChest_ptr getDepotChest(uint32_t depotId, bool autoCreate);
 	DepotLocker& getDepotLocker();
 	void onReceiveMail() const;
 	bool isNearDepotBox() const;
@@ -406,11 +415,11 @@ public:
 	bool editVIP(uint32_t vipGuid, const std::string& description, uint32_t icon, bool notify);
 
 	// follow functions
-	bool setFollowCreature(Creature* creature) override;
+	void setFollowCreature(Creature* creature) override;
 	void goToFollowCreature() override;
 
 	// follow events
-	void onFollowCreature(const Creature* creature) override;
+	void onUnfollowCreature() override;
 
 	// walk events
 	void onWalk(Direction& dir) override;
@@ -428,7 +437,8 @@ public:
 	void setSecureMode(bool mode) { secureMode = mode; }
 
 	// combat functions
-	bool setAttackedCreature(Creature* creature) override;
+	void setAttackedCreature(Creature* creature) override;
+	void removeAttackedCreature() override;
 	bool isImmune(CombatType_t type) const override;
 	bool isImmune(ConditionType_t type) const override;
 	bool hasShield() const;
@@ -499,7 +509,6 @@ public:
 	void onChangeZone(ZoneType_t zone) override;
 	void onAttackedCreatureChangeZone(ZoneType_t zone) override;
 	void onIdleStatus() override;
-	void onPlacedCreature() override;
 
 	LightInfo getCreatureLight() const override;
 
@@ -595,8 +604,7 @@ public:
 			client->sendChannelEvent(channelId, playerName, channelEvent);
 		}
 	}
-	void sendCreatureAppear(const Creature* creature, const Position& pos,
-	                        MagicEffectClasses magicEffect = CONST_ME_NONE)
+	void sendAddCreature(const Creature* creature, const Position& pos, MagicEffectClasses magicEffect = CONST_ME_NONE)
 	{
 		if (client) {
 			client->sendAddCreature(creature, pos, creature->getTile()->getClientIndexOfCreature(this, creature),
@@ -672,6 +680,12 @@ public:
 			}
 		}
 	}
+	void sendLight()
+	{
+		if (client) {
+			client->sendCreatureLight(this);
+		}
+	}
 	void sendCreatureLight(const Creature* creature)
 	{
 		if (client) {
@@ -720,10 +734,10 @@ public:
 	void sendAddContainerItem(const Container* container, const Item* item);
 	void sendUpdateContainerItem(const Container* container, uint16_t slot, const Item* newItem);
 	void sendRemoveContainerItem(const Container* container, uint16_t slot);
-	void sendContainer(uint8_t cid, const Container* container, bool hasParent, uint16_t firstIndex)
+	void sendContainer(uint8_t cid, const Container* container, uint16_t firstIndex)
 	{
 		if (client) {
-			client->sendContainer(cid, container, hasParent, firstIndex);
+			client->sendContainer(cid, container, firstIndex);
 		}
 	}
 
@@ -772,13 +786,10 @@ public:
 	                      const Item* newItem, const ItemType& newType) override;
 	void onRemoveTileItem(const Tile* tile, const Position& pos, const ItemType& iType, const Item* item) override;
 
-	void onCreatureAppear(Creature* creature, bool isLogin) override;
+	void onCreatureAppear(Creature* creature, bool isLogin, MagicEffectClasses magicEffect) override;
 	void onRemoveCreature(Creature* creature, bool isLogout) override;
 	void onCreatureMove(Creature* creature, const Tile* newTile, const Position& newPos, const Tile* oldTile,
 	                    const Position& oldPos, bool teleport) override;
-
-	void onEquipInventory();
-	void onDeEquipInventory();
 
 	void onAttackedCreatureDisappear(bool isLogout) override;
 	void onFollowCreatureDisappear(bool isLogout) override;
@@ -796,6 +807,36 @@ public:
 	void onUpdateInventoryItem(Item* oldItem, Item* newItem);
 	void onRemoveInventoryItem(Item* item);
 
+	void sendVIPEntries() const
+	{
+		if (client) {
+			client->sendVIPEntries();
+		}
+	}
+	void sendItemClasses() const
+	{
+		if (client) {
+			client->sendItemClasses();
+		}
+	}
+	void sendClientFeatures() const
+	{
+		if (client) {
+			client->sendClientFeatures();
+		}
+	}
+	void sendMapDescription() const
+	{
+		if (client) {
+			client->sendMapDescription(position);
+		}
+	}
+	void sendPendingStateEntered() const
+	{
+		if (client) {
+			client->sendPendingStateEntered();
+		}
+	}
 	void sendCancelMessage(const std::string& msg) const
 	{
 		if (client) {
@@ -845,6 +886,12 @@ public:
 	{
 		if (client) {
 			client->sendIcons(getClientIcons());
+		}
+	}
+	void sendMagicEffect(uint8_t type) const
+	{
+		if (client) {
+			client->sendMagicEffect(position, type);
 		}
 	}
 	void sendMagicEffect(const Position& pos, uint8_t type) const
@@ -1078,10 +1125,10 @@ public:
 
 	void onThink(uint32_t interval) override;
 
-	void postAddNotification(Thing* thing, const Cylinder* oldParent, int32_t index,
-	                         cylinderlink_t link = LINK_OWNER) override;
-	void postRemoveNotification(Thing* thing, const Cylinder* newParent, int32_t index,
-	                            cylinderlink_t link = LINK_OWNER) override;
+	void postAddNotification(Thing* thing, const Thing* oldParent, int32_t index,
+	                         ReceiverLink_t link = LINK_OWNER) override;
+	void postRemoveNotification(Thing* thing, const Thing* newParent, int32_t index,
+	                            ReceiverLink_t link = LINK_OWNER) override;
 
 	void setNextAction(int64_t time)
 	{
@@ -1135,16 +1182,14 @@ private:
 	                bool mostDamageUnjustified) override;
 	Item* getCorpse(Creature* lastHitCreature, Creature* mostDamageCreature) override;
 
-	// cylinder implementations
 	ReturnValue queryAdd(int32_t index, const Thing& thing, uint32_t count, uint32_t flags,
 	                     Creature* actor = nullptr) const override;
 	ReturnValue queryMaxCount(int32_t index, const Thing& thing, uint32_t count, uint32_t& maxQueryCount,
 	                          uint32_t flags) const override;
 	ReturnValue queryRemove(const Thing& thing, uint32_t count, uint32_t flags,
 	                        Creature* actor = nullptr) const override;
-	Cylinder* queryDestination(int32_t& index, const Thing& thing, Item** destItem, uint32_t& flags) override;
+	Thing* queryDestination(int32_t& index, const Thing& thing, Item** destItem, uint32_t& flags) override;
 
-	void addThing(Thing*) override {}
 	void addThing(int32_t index, Thing* thing) override;
 
 	void updateThing(Thing* thing, uint16_t itemId, uint32_t count) override;
@@ -1153,20 +1198,20 @@ private:
 	void removeThing(Thing* thing, uint32_t count) override;
 
 	int32_t getThingIndex(const Thing* thing) const override;
-	size_t getFirstIndex() const override;
-	size_t getLastIndex() const override;
-	uint32_t getItemTypeCount(uint16_t itemId, int32_t subType = -1, bool ignoreEquipped = false) const override;
+	size_t getFirstIndex() const override { return CONST_SLOT_FIRST; }
+	size_t getLastIndex() const override { return CONST_SLOT_LAST + 1; }
+	uint32_t getItemTypeCount(uint16_t itemId, int32_t subType = -1) const override;
 	std::map<uint32_t, uint32_t>& getAllItemTypeCount(std::map<uint32_t, uint32_t>& countMap) const override;
 	Thing* getThing(size_t index) const override;
 
-	void internalAddThing(Thing* thing) override;
+	void internalAddThing(Thing* thing) override { internalAddThing(0, thing); }
 	void internalAddThing(uint32_t index, Thing* thing) override;
 
 	std::unordered_set<uint32_t> attackedSet;
 	std::unordered_set<uint32_t> VIPList;
 
 	std::map<uint8_t, OpenContainer> openContainers;
-	std::map<uint32_t, DepotChest*> depotChests;
+	std::map<uint32_t, DepotChest_ptr> depotChests;
 
 	std::map<uint16_t, uint8_t> outfits;
 	std::unordered_set<uint16_t> mounts;
@@ -1210,7 +1255,7 @@ private:
 	Guild_ptr guild = nullptr;
 	GuildRank_ptr guildRank = nullptr;
 	Group* group = nullptr;
-	Inbox* inbox;
+	Inbox_ptr inbox = nullptr;
 	Item* tradeItem = nullptr;
 	Item* inventory[CONST_SLOT_LAST + 1] = {};
 	Item* writeItem = nullptr;
@@ -1219,7 +1264,7 @@ private:
 	Party* party = nullptr;
 	Player* tradePartner = nullptr;
 	SchedulerTask* walkTask = nullptr;
-	Town* town = nullptr;
+	const Town* town = nullptr;
 	Vocation* vocation = nullptr;
 	StoreInbox* storeInbox = nullptr;
 	DepotLocker_ptr depotLocker = nullptr;

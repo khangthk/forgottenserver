@@ -146,7 +146,8 @@ void ProtocolGame::release()
 		player = nullptr;
 	}
 
-	OutputMessagePool::getInstance().removeProtocolFromAutosend(shared_from_this());
+	tfs::net::remove_protocol_from_autosend(shared_from_this());
+
 	Protocol::release();
 }
 
@@ -204,12 +205,13 @@ void ProtocolGame::login(uint32_t characterId, uint32_t accountId, OperatingSyst
 
 		if (std::size_t currentSlot = clientLogin(*player)) {
 			uint8_t retryTime = getWaitTime(currentSlot);
-			auto output = OutputMessagePool::getOutputMessage();
+			auto output = tfs::net::make_output_message();
 			output->addByte(0x16);
 			output->addString(
 			    fmt::format("Too many players online.\nYou are at place {:d} on the waiting list.", currentSlot));
 			output->addByte(retryTime);
 			send(output);
+
 			disconnect();
 			return;
 		}
@@ -221,8 +223,8 @@ void ProtocolGame::login(uint32_t characterId, uint32_t accountId, OperatingSyst
 
 		player->setOperatingSystem(operatingSystem);
 
-		if (!g_game.placeCreature(player, player->getLoginPosition())) {
-			if (!g_game.placeCreature(player, player->getTemplePosition(), false, true)) {
+		if (!g_game.placeCreature(player, player->getLoginPosition(), false, false, CONST_ME_TELEPORT)) {
+			if (!g_game.placeCreature(player, player->getTemplePosition(), false, true, CONST_ME_TELEPORT)) {
 				disconnectClient("Temple position is wrong. Contact the administrator.");
 				return;
 			}
@@ -254,11 +256,13 @@ void ProtocolGame::login(uint32_t characterId, uint32_t accountId, OperatingSyst
 			connect(foundPlayer->getID(), operatingSystem);
 		}
 	}
-	OutputMessagePool::getInstance().addProtocolToAutosend(shared_from_this());
+
+	tfs::net::insert_protocol_to_autosend(shared_from_this());
 }
 
 void ProtocolGame::connect(uint32_t playerId, OperatingSystem_t operatingSystem)
 {
+	// dispatcher thread
 	eventConnect = 0;
 
 	Player* foundPlayer = g_game.getPlayerByID(playerId);
@@ -282,11 +286,13 @@ void ProtocolGame::connect(uint32_t playerId, OperatingSystem_t operatingSystem)
 	player->isConnecting = false;
 
 	player->client = getThis();
-	sendAddCreature(player, player->getPosition(), 0);
+	player->onCreatureAppear(player, false, CONST_ME_NONE);
 	player->lastIP = player->getIP();
 	player->lastLoginSaved = std::max<time_t>(time(nullptr), player->lastLoginSaved + 1);
 	player->resetIdleTime();
 	acceptPackets = true;
+
+	g_creatureEvents->playerReconnect(player);
 }
 
 void ProtocolGame::logout(bool displayEffect, bool forced)
@@ -377,7 +383,7 @@ void ProtocolGame::onRecvFirstMessage(NetworkMessage& msg)
 	}
 
 	// Change packet verifying mode for QT clients
-	if (version >= 1111 && operatingSystem >= CLIENTOS_QT_LINUX && operatingSystem < CLIENTOS_OTCLIENT_LINUX) {
+	if (version >= 1111 && operatingSystem >= CLIENTOS_QT_LINUX && operatingSystem <= CLIENTOS_OTCLIENT_MAC) {
 		setChecksumMode(CHECKSUM_SEQUENCE);
 	}
 
@@ -452,7 +458,7 @@ void ProtocolGame::onRecvFirstMessage(NetworkMessage& msg)
 
 void ProtocolGame::onConnect()
 {
-	auto output = OutputMessagePool::getOutputMessage();
+	auto output = tfs::net::make_output_message();
 	static std::random_device rd;
 	static std::ranlux24 generator(rd());
 	static std::uniform_int_distribution<uint16_t> randNumber(0x00, 0xFF);
@@ -480,10 +486,11 @@ void ProtocolGame::onConnect()
 
 void ProtocolGame::disconnectClient(const std::string& message) const
 {
-	auto output = OutputMessagePool::getOutputMessage();
+	auto output = tfs::net::make_output_message();
 	output->addByte(0x14);
 	output->addString(message);
 	send(output);
+
 	disconnect();
 }
 
@@ -786,8 +793,10 @@ void ProtocolGame::parsePacket(NetworkMessage& msg)
 			// case 0xFE: break; // store window history 2
 
 		default:
+			// we cannot pass an unique_ptr as capture here because
+			// std::function requires the callable object to be *copyable*
 			g_dispatcher.addTask([=, playerID = player->getID(), msg = new NetworkMessage(msg)]() {
-				g_game.parsePlayerNetworkMessage(playerID, recvbyte, msg);
+				g_game.parsePlayerNetworkMessage(playerID, recvbyte, NetworkMessage_ptr(msg));
 			});
 			break;
 	}
@@ -1224,7 +1233,7 @@ void ProtocolGame::parseLookInBattleList(NetworkMessage& msg)
 
 void ProtocolGame::parseSay(NetworkMessage& msg)
 {
-	std::string_view receiver;
+	std::string receiver;
 	uint16_t channelId;
 
 	SpeakClasses type = static_cast<SpeakClasses>(msg.getByte());
@@ -1419,7 +1428,7 @@ void ProtocolGame::parseRuleViolationReport(NetworkMessage& msg)
 	uint8_t reportReason = msg.getByte();
 	auto targetName = msg.getString();
 	auto comment = msg.getString();
-	std::string_view translation;
+	std::string translation;
 	if (reportType == REPORT_TYPE_NAME) {
 		translation = msg.getString();
 	} else if (reportType == REPORT_TYPE_STATEMENT) {
@@ -1888,7 +1897,7 @@ void ProtocolGame::sendIcons(uint32_t icons)
 	writeToOutputBuffer(msg);
 }
 
-void ProtocolGame::sendContainer(uint8_t cid, const Container* container, bool hasParent, uint16_t firstIndex)
+void ProtocolGame::sendContainer(uint8_t cid, const Container* container, uint16_t firstIndex)
 {
 	NetworkMessage msg;
 	msg.addByte(0x6E);
@@ -1904,7 +1913,7 @@ void ProtocolGame::sendContainer(uint8_t cid, const Container* container, bool h
 	}
 
 	msg.addByte(container->capacity());
-	msg.addByte(hasParent ? 0x01 : 0x00);
+	msg.addByte(container->hasContainerParent() ? 0x01 : 0x00);
 	msg.addByte(0x00);                                     // show search icon (boolean)
 	msg.addByte(container->isUnlocked() ? 0x01 : 0x00);    // Drag and drop
 	msg.addByte(container->hasPagination() ? 0x01 : 0x00); // Pagination
@@ -2088,16 +2097,16 @@ void ProtocolGame::sendMarketEnter()
 	NetworkMessage msg;
 	msg.addByte(0xF6);
 	msg.addByte(
-	    std::min<uint32_t>(IOMarket::getPlayerOfferCount(player->getGUID()), std::numeric_limits<uint8_t>::max()));
+	    std::min<uint32_t>(tfs::iomarket::getPlayerOfferCount(player->getGUID()), std::numeric_limits<uint8_t>::max()));
 
 	player->setInMarket(true);
 
 	std::map<uint16_t, uint32_t> depotItems;
-	std::forward_list<Container*> containerList{player->getInbox()};
+	std::forward_list<Container*> containerList{player->getInbox().get()};
 
 	for (const auto& chest : player->depotChests) {
 		if (!chest.second->empty()) {
-			containerList.push_front(chest.second);
+			containerList.push_front(chest.second.get());
 		}
 	}
 
@@ -2740,81 +2749,40 @@ void ProtocolGame::sendFightModes()
 void ProtocolGame::sendAddCreature(const Creature* creature, const Position& pos, int32_t stackpos,
                                    MagicEffectClasses magicEffect /*= CONST_ME_NONE*/)
 {
+	assert(creature != player);
+
 	if (!canSee(pos)) {
 		return;
 	}
 
-	if (creature != player) {
-		// stack pos is always real index now, so it can exceed the limit if stack pos exceeds the limit, we need to
-		// refresh the tile instead
-		// 1. this is a rare case, and is only triggered by forcing summon in a position
-		// 2. since no stackpos will be send to the client about that creature, removing it must be done with its id if
-		// its stackpos remains >= MAX_STACKPOS. this is done to add creatures to battle list instead of rendering on
-		// screen
-		if (stackpos >= MAX_STACKPOS) {
-			// @todo: should we avoid this check?
-			if (const Tile* tile = creature->getTile()) {
-				sendUpdateTile(tile, pos);
-			}
-		} else {
-			// if stackpos is -1, the client will automatically detect it
-			NetworkMessage msg;
-			msg.addByte(0x6A);
-			msg.addPosition(pos);
-			msg.addByte(stackpos);
-
-			bool known;
-			uint32_t removedKnown;
-			checkCreatureAsKnown(creature->getID(), known, removedKnown);
-			AddCreature(msg, creature, known, removedKnown);
-			writeToOutputBuffer(msg);
+	// stack pos is always real index now, so it can exceed the limit if stack pos exceeds the limit, we need to
+	// refresh the tile instead
+	// 1. this is a rare case, and is only triggered by forcing summon in a position
+	// 2. since no stackpos will be send to the client about that creature, removing it must be done with its id if
+	// its stackpos remains >= MAX_STACKPOS. this is done to add creatures to battle list instead of rendering on
+	// screen
+	if (stackpos >= MAX_STACKPOS) {
+		// @todo: should we avoid this check?
+		if (const Tile* tile = creature->getTile()) {
+			sendUpdateTile(tile, pos);
 		}
+	} else {
+		// if stackpos is -1, the client will automatically detect it
+		NetworkMessage msg;
+		msg.addByte(0x6A);
+		msg.addPosition(pos);
+		msg.addByte(stackpos);
 
-		if (magicEffect != CONST_ME_NONE) {
-			sendMagicEffect(pos, magicEffect);
-		}
-		return;
+		bool known;
+		uint32_t removedKnown;
+		checkCreatureAsKnown(creature->getID(), known, removedKnown);
+		AddCreature(msg, creature, known, removedKnown);
+		writeToOutputBuffer(msg);
 	}
 
-	// send player stats
-	sendStats();         // hp, cap, level, xp rate, etc.
-	sendSkills();        // skills and special skills
-	player->sendIcons(); // active conditions
-
-	// send client info
-	sendClientFeatures(); // player speed, bug reports, store url, pvp mode, etc
-	sendBasicData();      // premium account, vocation, known spells, prey system status, magic shield status
-	sendItems();          // send carried items for action bars
-
-	// enter world and send game screen
-	sendPendingStateEntered();
-	sendEnterWorld();
-	sendMapDescription(pos);
-
-	// send login effect
 	if (magicEffect != CONST_ME_NONE) {
 		sendMagicEffect(pos, magicEffect);
 	}
-
-	// send equipment
-	for (int i = CONST_SLOT_FIRST; i <= CONST_SLOT_LAST; ++i) {
-		sendInventoryItem(static_cast<slots_t>(i), player->getInventoryItem(static_cast<slots_t>(i)));
-	}
-
-	// send store inbox
-	sendInventoryItem(CONST_SLOT_STORE_INBOX, player->getStoreInbox()->getItem());
-
-	// player light level
-	sendCreatureLight(creature);
-
-	// player vip list
-	sendVIPEntries();
-
-	// tiers for forge and market
-	sendItemClasses();
-
-	// opened containers
-	player->openSavedContainers();
 }
 
 void ProtocolGame::sendMoveCreature(const Creature* creature, const Position& newPos, int32_t newStackPos,
@@ -3410,7 +3378,7 @@ void ProtocolGame::sendModalWindow(const ModalWindow& modalWindow)
 
 void ProtocolGame::sendSessionEnd(SessionEndTypes_t reason)
 {
-	auto output = OutputMessagePool::getOutputMessage();
+	auto output = tfs::net::make_output_message();
 	output->addByte(0x18);
 	output->addByte(reason);
 	send(output);
@@ -3494,13 +3462,12 @@ void ProtocolGame::AddCreature(NetworkMessage& msg, const Creature* creature, bo
 		msg.addByte(otherPlayer ? otherPlayer->getVocation()->getClientId() : 0x00);
 	}
 
-	uint8_t speechBubble = creature->getSpeechBubble();
-	if (auto npc = creature->getNpc()) {
-		if (npc->npcEventHandler->speechBubbleEvent != -1) {
-			npc->npcEventHandler->onSpeechBubble(player, speechBubble);
-		}
+	if (const auto npc = creature->getNpc()) {
+		msg.addByte(npc->getSpeechBubble());
+	} else {
+		msg.addByte(SPEECHBUBBLE_NONE);
 	}
-	msg.addByte(speechBubble);
+
 	msg.addByte(0xFF); // MARK_UNMARKED
 	msg.addByte(0x00); // inspection type (bool?)
 

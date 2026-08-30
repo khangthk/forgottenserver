@@ -42,6 +42,7 @@ public:
 	static Position getCasterPosition(Creature* creature, Direction dir);
 	std::string_view getScriptBaseName() const override { return "spells"; }
 
+	const std::map<uint16_t, RuneSpell>& getRuneSpells() const { return runes; };
 	const std::map<std::string, InstantSpell>& getInstantSpells() const { return instants; };
 
 	void clearMaps(bool fromLua);
@@ -227,7 +228,7 @@ public:
 
 	bool configureEvent(const pugi::xml_node& node) override;
 
-	virtual bool playerCastInstant(Player* player, std::string& param);
+	bool playerCastInstant(Player* player, std::string& param);
 
 	bool castSpell(Creature* creature) override;
 	bool castSpell(Creature* creature, Creature* target) override;
@@ -295,6 +296,7 @@ public:
 		}
 		charges = c;
 	}
+	bool canUse(const Player* player) const;
 
 private:
 	std::string_view getScriptEventName() const override { return "onCastSpell"; }

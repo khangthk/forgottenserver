@@ -42,25 +42,25 @@ enum GameState_t
 	GAME_STATE_MAINTAIN,
 };
 
-static constexpr int32_t PLAYER_NAME_LENGTH = 25;
+inline constexpr int32_t PLAYER_NAME_LENGTH = 25;
 
-static constexpr int32_t EVENT_DECAYINTERVAL = 250;
-static constexpr int32_t EVENT_DECAY_BUCKETS = 4;
+inline constexpr int32_t EVENT_DECAYINTERVAL = 250;
+inline constexpr int32_t EVENT_DECAY_BUCKETS = 4;
 
-static constexpr int32_t MOVE_CREATURE_INTERVAL = 1000;
-static constexpr int32_t RANGE_MOVE_CREATURE_INTERVAL = 1500;
-static constexpr int32_t RANGE_MOVE_ITEM_INTERVAL = 400;
-static constexpr int32_t RANGE_USE_ITEM_INTERVAL = 400;
-static constexpr int32_t RANGE_USE_ITEM_EX_INTERVAL = 400;
-static constexpr int32_t RANGE_USE_WITH_CREATURE_INTERVAL = 400;
-static constexpr int32_t RANGE_ROTATE_ITEM_INTERVAL = 400;
-static constexpr int32_t RANGE_BROWSE_FIELD_INTERVAL = 400;
-static constexpr int32_t RANGE_WRAP_ITEM_INTERVAL = 400;
-static constexpr int32_t RANGE_REQUEST_TRADE_INTERVAL = 400;
+inline constexpr int32_t MOVE_CREATURE_INTERVAL = 1000;
+inline constexpr int32_t RANGE_MOVE_CREATURE_INTERVAL = 1500;
+inline constexpr int32_t RANGE_MOVE_ITEM_INTERVAL = 400;
+inline constexpr int32_t RANGE_USE_ITEM_INTERVAL = 400;
+inline constexpr int32_t RANGE_USE_ITEM_EX_INTERVAL = 400;
+inline constexpr int32_t RANGE_USE_WITH_CREATURE_INTERVAL = 400;
+inline constexpr int32_t RANGE_ROTATE_ITEM_INTERVAL = 400;
+inline constexpr int32_t RANGE_BROWSE_FIELD_INTERVAL = 400;
+inline constexpr int32_t RANGE_WRAP_ITEM_INTERVAL = 400;
+inline constexpr int32_t RANGE_REQUEST_TRADE_INTERVAL = 400;
 
-static constexpr int32_t MAX_STACKPOS = 10;
+inline constexpr int32_t MAX_STACKPOS = 10;
 
-static constexpr uint8_t ITEM_STACK_SIZE = 100;
+inline constexpr uint8_t ITEM_STACK_SIZE = 100;
 
 /**
  * Main Game class.
@@ -82,7 +82,7 @@ public:
 	void forceRemoveCondition(uint32_t creatureId, ConditionType_t type);
 
 	bool loadMainMap(const std::string& filename);
-	void loadMap(const std::string& path);
+	void loadMap(const std::string& path, bool isCalledByLua = false);
 
 	/**
 	 * Get the map size - info purpose only
@@ -98,7 +98,7 @@ public:
 	void setWorldType(WorldType_t type);
 	WorldType_t getWorldType() const { return worldType; }
 
-	Cylinder* internalGetCylinder(Player* player, const Position& pos) const;
+	Thing* internalGetThing(Player* player, const Position& pos) const;
 	Thing* internalGetThing(Player* player, const Position& pos, int32_t index, uint32_t spriteId,
 	                        stackPosType_t type) const;
 	static void internalGetPosition(Item* item, Position& pos, uint8_t& stackpos);
@@ -213,14 +213,14 @@ public:
 	ReturnValue internalMoveCreature(Creature* creature, Direction direction, uint32_t flags = 0);
 	ReturnValue internalMoveCreature(Creature& creature, Tile& toTile, uint32_t flags = 0);
 
-	ReturnValue internalMoveItem(Cylinder* fromCylinder, Cylinder* toCylinder, int32_t index, Item* item,
-	                             uint32_t count, Item** _moveItem, uint32_t flags = 0, Creature* actor = nullptr,
+	ReturnValue internalMoveItem(Thing* fromThing, Thing* toThing, int32_t index, Item* item, uint32_t count,
+	                             Item** _moveItem, uint32_t flags = 0, Creature* actor = nullptr,
 	                             Item* tradeItem = nullptr, const Position* fromPos = nullptr,
 	                             const Position* toPos = nullptr);
 
-	ReturnValue internalAddItem(Cylinder* toCylinder, Item* item, int32_t index = INDEX_WHEREEVER, uint32_t flags = 0,
+	ReturnValue internalAddItem(Thing* toThing, Item* item, int32_t index = INDEX_WHEREEVER, uint32_t flags = 0,
 	                            bool test = false);
-	ReturnValue internalAddItem(Cylinder* toCylinder, Item* item, int32_t index, uint32_t flags, bool test,
+	ReturnValue internalAddItem(Thing* toThing, Item* item, int32_t index, uint32_t flags, bool test,
 	                            uint32_t& remainderCount);
 	ReturnValue internalRemoveItem(Item* item, int32_t count = -1, bool test = false, uint32_t flags = 0);
 
@@ -229,31 +229,31 @@ public:
 
 	/**
 	 * Find an item of a certain type
-	 * \param cylinder to search the item
+	 * \param fromThing to search the item
 	 * \param itemId is the item to remove
 	 * \param subType is the extra type an item can have such as charges/fluidtype, default is -1
 	 * meaning it's not used
 	 * \param depthSearch if true it will check child containers aswell
 	 * \returns A pointer to the item to an item and nullptr if not found
 	 */
-	Item* findItemOfType(Cylinder* cylinder, uint16_t itemId, bool depthSearch = true, int32_t subType = -1) const;
+	Item* findItemOfType(Thing* fromThing, uint16_t itemId, bool depthSearch = true, int32_t subType = -1) const;
 
 	/**
 	 * Remove/Add item(s) with a monetary value
-	 * \param cylinder to remove the money from
+	 * \param fromThing to remove the money from
 	 * \param money is the amount to remove
 	 * \param flags optional flags to modify the default behavior
 	 * \returns true if the removal was successful
 	 */
-	bool removeMoney(Cylinder* cylinder, uint64_t money, uint32_t flags = 0);
+	bool removeMoney(Thing* fromThing, uint64_t money, uint32_t flags = 0);
 
 	/**
 	 * Add item(s) with monetary value
-	 * \param cylinder which will receive money
+	 * \param thing which will receive money
 	 * \param money the amount to give
 	 * \param flags optional flags to modify default behavior
 	 */
-	void addMoney(Cylinder* cylinder, uint64_t money, uint32_t flags = 0);
+	void addMoney(Thing* thing, uint64_t money, uint32_t flags = 0);
 
 	/**
 	 * Transform one item to another type/count
@@ -316,7 +316,7 @@ public:
 	void playerMoveItemByPlayerID(uint32_t playerId, const Position& fromPos, uint16_t spriteId, uint8_t fromStackPos,
 	                              const Position& toPos, uint8_t count);
 	void playerMoveItem(Player* player, const Position& fromPos, uint16_t spriteId, uint8_t fromStackPos,
-	                    const Position& toPos, uint8_t count, Item* item, Cylinder* toCylinder);
+	                    const Position& toPos, uint8_t count, Item* item, Thing* toThing);
 	void playerEquipItem(uint32_t playerId, uint16_t spriteId);
 	void playerMove(uint32_t playerId, Direction direction);
 	void playerCreatePrivateChannel(uint32_t playerId);
@@ -392,9 +392,9 @@ public:
 	void playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16_t counter, uint16_t amount);
 
 	void parsePlayerExtendedOpcode(uint32_t playerId, uint8_t opcode, const std::string& buffer);
-	void parsePlayerNetworkMessage(uint32_t playerId, uint8_t recvByte, NetworkMessage* msg);
+	void parsePlayerNetworkMessage(uint32_t playerId, uint8_t recvByte, NetworkMessage_ptr msg);
 
-	std::vector<Item*> getMarketItemList(uint16_t wareId, uint16_t sufficientCount, const Player& player);
+	std::vector<Item*> getMarketItemList(uint16_t wareId, uint16_t sufficientCount, Player& player);
 
 	void cleanup();
 	void shutdown();
@@ -424,6 +424,7 @@ public:
 	void updateCreatureWalk(uint32_t creatureId);
 	void checkCreatureAttack(uint32_t creatureId);
 	void checkCreatures(size_t index);
+	void updateCreaturesPath(size_t index);
 
 	bool combatBlockHit(CombatDamage& damage, Creature* attacker, Creature* target, bool checkDefense, bool checkArmor,
 	                    bool field, bool ignoreResistances = false);

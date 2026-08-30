@@ -19,11 +19,28 @@ retry:
 	}
 	isFirstAttemptToConnect = false;
 
+// MariaDB requires explicit SSL settings to avoid the following error:
+// "SSL is required, but the server does not support it"
+// For more details see issue #4954 ( https://github.com/otland/forgottenserver/issues/4954 )
+#ifdef MARIADB_VERSION_ID
+	// this needs to be above "goto" otherwise it won't build
+	bool ssl_enforce = false;
+	bool ssl_verify = false;
+#endif
+
 	tfs::detail::Mysql_ptr handle{mysql_init(nullptr)};
 	if (!handle) {
 		std::cout << std::endl << "Failed to initialize MySQL connection handle." << std::endl;
 		goto error;
 	}
+
+// MariaDB explicit SSL settings continued
+#ifdef MARIADB_VERSION_ID
+	mysql_options(handle.get(), MYSQL_OPT_SSL_ENFORCE, &ssl_enforce);
+	mysql_options(handle.get(), MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &ssl_verify);
+	mysql_ssl_set(handle.get(), nullptr, nullptr, nullptr, nullptr, nullptr);
+#endif
+
 	// connects to database
 	if (!mysql_real_connect(handle.get(), getString(ConfigManager::MYSQL_HOST).c_str(),
 	                        getString(ConfigManager::MYSQL_USER).c_str(), getString(ConfigManager::MYSQL_PASS).c_str(),
@@ -106,7 +123,14 @@ bool Database::commit()
 bool Database::executeQuery(const std::string& query)
 {
 	std::lock_guard<std::recursive_mutex> lockGuard(databaseLock);
-	return ::executeQuery(handle, query, retryQueries);
+	auto success = ::executeQuery(handle, query, retryQueries);
+
+	// executeQuery can be called with command that produces result (e.g. SELECT)
+	// we have to store that result, even though we do not need it, otherwise handle will get blocked
+	auto mysql_res = mysql_store_result(handle.get());
+	mysql_free_result(mysql_res);
+
+	return success;
 }
 
 DBResult_ptr Database::storeQuery(std::string_view query)

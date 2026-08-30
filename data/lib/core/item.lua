@@ -583,35 +583,23 @@ do
 			end
 		end
 
+		--[[
 		-- imbuements (to do)
 		-- \nImbuements: (Basic Strike 2:30h, Basic Void 2:30h, Empty Slot).
 
-		-- item class
-		-- Classification: x Tier: y (0.50% Onslaught).
+		
+		-- item class (placeholder)
+		-- Classification: x.
+		-- Disabled until classification system is implemented.
+
 		do
 			local classification = itemType:getClassification()
-			local tier = isVirtual and 0 or item:getTier() or 0
-
-			if classification > 0 or tier > 0 then
-				if classification == 0 then
-					classification = "other"
-				end
-
-				local tierString = tier
-				if tier > 0 then
-					local bonusType, bonusValue = itemType:getTierBonus(tier)
-					if bonusType ~= -1 then
-						if bonusType > 5 then
-							tierString = string.format("%d (%0.2f%% %s)", tier, bonusValue, getSpecialSkillName(bonusType))
-						else
-							tierString = string.format("%d (%d%% %s)", tier, bonusValue, getSpecialSkillName(bonusType))
-						end
-					end
-				end
-
-				response[#response + 1] = string.format("\nClassification: %s Tier: %s.", classification, tierString)
+			if classification == 0 then
+				classification = "other"
 			end
+			response[#response + 1] = string.format("\nClassification: %s.", classification)
 		end
+		]]
 
 		-- item count (will be reused later)
 		local count = isVirtual and 1 or item:getCount()
@@ -757,9 +745,21 @@ do
 			end
 
 			if desc and desc:len() > 0 then
-				if not (isBed and desc == "Nobody is sleeping there.") then
+				response[#response + 1] = string.format("\n%s", desc)
+			end
+		else
+			if lookDistance <= 4 then
+				local desc = not isVirtual and item:getSpecialDescription()
+
+				if not desc or desc == "" then
+					desc = itemType:getDescription()
+				end
+
+				if desc and desc:len() > 0 then
 					response[#response + 1] = string.format("\n%s", desc)
 				end
+			else
+				response[#response + 1] = "\nYou are too far away to read it."
 			end
 		end
 

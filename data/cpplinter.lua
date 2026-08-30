@@ -1,11 +1,7 @@
----@class os
----@field mtime fun(): number
-os = {}
+---@alias os.mtime fun(): number
 
----@class table
----@field create fun(arrayLength: number, keyLength: number): table
----@field pack fun(...): table
-table = {}
+---@alias table.create fun(arrayLength: number, keyLength: number): table
+---@alias table.pack fun(...): table
 
 ---@class rawgetmetatable
 ---@field __index fun(self: table, key: any): any
@@ -96,7 +92,6 @@ configManager = {}
 ---@field createNpc fun(name: string, position: Position, extended?: boolean, force?: boolean, magicEffect?: MagicEffect_t): Npc
 ---@field createTile fun(position: Position): Tile
 ---@field createMonsterType fun(name: string): MonsterType
----@field createNpcType fun(name: string): NpcType
 ---@field startEvent fun(eventName: string): boolean
 ---@field getClientVersion fun(): string
 ---@field reload fun(reloadType: number): boolean
@@ -322,7 +317,7 @@ Podium = {}
 ---@field setSkull fun(self: Creature, skullType: number)
 ---@field getOutfit fun(self: Creature): Outfit
 ---@field setOutfit fun(self: Creature, outfit: Outfit)
----@field getCondition fun(self: Creature, conditionType: number, conditionId?: number, subId?: number): Condition
+---@field getCondition fun(self: Creature, conditionType: number): Condition
 ---@field addCondition fun(self: Creature, condition: Condition)
 ---@field removeCondition fun(self: Creature, conditionType: number)
 ---@field hasCondition fun(self: Creature, conditionType: number): boolean
@@ -394,13 +389,13 @@ Creature = {}
 ---@field addOfflineTrainingTries fun(self: Player, skill: number, amount: number)
 ---@field getOfflineTrainingSkill fun(self: Player): number
 ---@field setOfflineTrainingSkill fun(self: Player, skill: number)
----@field getItemCount fun(self: Player, itemId: number, subType?: number, ignoreEquipped?: boolean): number
+---@field getItemCount fun(self: Player, itemId: number): number
 ---@field getItemById fun(self: Player, itemId: number, subType?: number): Item
 ---@field getVocation fun(self: Player): Vocation
 ---@field setVocation fun(self: Player, vocationId: number)
 ---@field getSex fun(self: Player): number
 ---@field setSex fun(self: Player, sexId: number)
----@field getTown fun(self: Player): Town
+---@field getTown fun(self: Player): number
 ---@field setTown fun(self: Player, townId: number)
 ---@field getGuild fun(self: Player): Guild
 ---@field setGuild fun(self: Player, guild: Guild)
@@ -419,7 +414,7 @@ Creature = {}
 ---@field setBankBalance fun(self: Player, balance: number)
 ---@field addItem fun(self: Player, itemId: number, count?: number): Item
 ---@field addItemEx fun(self: Player, item: Item, copyItem?: boolean): boolean
----@field removeItem fun(self: Player, itemId: number, count?: number, subtype?: number, ignoreEquipped?: boolean): boolean
+---@field removeItem fun(self: Player, itemId: number, count?: number, subtype?: number): boolean
 ---@field sendSupplyUsed fun(self: Player, item: Item)
 ---@field getMoney fun(self: Player): number
 ---@field addMoney fun(self: Player, amount: number)
@@ -449,10 +444,10 @@ Creature = {}
 ---@field hasBlessing fun(self: Player, blessingId: number): boolean
 ---@field addBlessing fun(self: Player, blessingId: number)
 ---@field removeBlessing fun(self: Player, blessingId: number)
----@field canLearnSpell fun(self: Player, name: string): boolean
----@field learnSpell fun(self: Player, name: string)
----@field forgetSpell fun(self: Player, name: string)
----@field hasLearnedSpell fun(self: Player, name: string): boolean
+---@field canLearnSpell fun(self: Player, spellId: number): boolean
+---@field learnSpell fun(self: Player, spellId: number)
+---@field forgetSpell fun(self: Player, spellId: number)
+---@field hasLearnedSpell fun(self: Player, spellId: number): boolean
 ---@field sendTutorial fun(self: Player, tutorialId: number)
 ---@field addMapMark fun(self: Player, position: Position, type: number, description?: string)
 ---@field save fun(self: Player)
@@ -525,66 +520,6 @@ Monster = {}
 ---@field setSpeechBubble fun(self: Npc, bubbleType: number)
 ---@field getSpectators fun(self: Npc, centerPos: Position, rangeX: number, rangeY: number, multifloor: boolean): table
 Npc = {}
-
----@class NpcType
----@field create fun(): NpcType
----@field name fun(self: NpcType, name?: string): any
----@field setName fun(self: NpcType, name: string): boolean
----@field getName fun(self: NpcType): string
----@field eventType fun(self: NpcType, eventType?: string): any
----@field setEventType fun(self: NpcType, type: string): boolean
----@field getEventType fun(self: NpcType): string
----@field speechBubble fun(self: NpcType, speechBubble?: number): any
----@field setSpeechBubble fun(self: NpcType, bubble: number): boolean
----@field getSpeechBubble fun(self: NpcType): number
----@field walkInterval fun(self: NpcType, interval?: number): any
----@field setWalkInterval fun(self: NpcType, interval: number): boolean
----@field getWalkInterval fun(self: NpcType): number
----@field walkSpeed fun(self: NpcType, speed?: number): any
----@field setWalkSpeed fun(self: NpcType, speed: number): boolean
----@field getWalkSpeed fun(self: NpcType): number
----@field spawnRadius fun(self: NpcType, radius?: number): any
----@field setSpawnRadius fun(self: NpcType, radius: number): boolean
----@field getSpawnRadius fun(self: NpcType): number
----@field floorChange fun(self: NpcType, floorChange?: boolean): any
----@field setFloorChange fun(self: NpcType, floorChange: boolean): boolean
----@field getFloorChange fun(self: NpcType): boolean
----@field attackable fun(self: NpcType, attackable?: boolean): any
----@field setAttackable fun(self: NpcType, attackable: boolean): boolean
----@field getAttackable fun(self: NpcType): boolean
----@field ignoreHeight fun(self: NpcType, ignoreHeight?: boolean): any
----@field setIgnoreHeight fun(self: NpcType, ignoreHeight: boolean): boolean
----@field getIgnoreHeight fun(self: NpcType): boolean
----@field isIdle fun(self: NpcType, isIdle?: boolean): any
----@field setIsIdle fun(self: NpcType, isIdle: boolean): boolean
----@field getIsIdle fun(self: NpcType): boolean
----@field pushable fun(self: NpcType, pushable?: boolean): any
----@field setPushable fun(self: NpcType, pushable: boolean): boolean
----@field getPushable fun(self: NpcType): boolean
----@field outfit fun(self: NpcType, outfit?: Outfit|table): any
----@field setOutfit fun(self: NpcType, outfit: Outfit): boolean
----@field getOutfit fun(self: NpcType): Outfit
----@field parameters fun(self: NpcType, key?: any, value?: any): any
----@field setParameters fun(self: NpcType, key: any, value: any): boolean
----@field getParameters fun(self: NpcType, key: any): table
----@field health fun(self: NpcType, health?: number): any
----@field setHealth fun(self: NpcType, health: number): boolean
----@field getHealth fun(self: NpcType): number
----@field maxHealth fun(self: NpcType, maxHealth?: number): any
----@field setMaxHealth fun(self: NpcType, maxHealth: number): boolean
----@field getMaxHealth fun(self: NpcType): number
----@field sight fun(self: NpcType, x?: number, y?: number): number?, number?
----@field setSight fun(self: NpcType, x: number, y: number)
----@field getSight fun(self: NpcType): number, number
----@field onSay fun(self: NpcType, callback: function)
----@field onDisappear fun(self: NpcType, callback: function)
----@field onAppear fun(self: NpcType, callback: function)
----@field onMove fun(self: NpcType, callback: function)
----@field onPlayerCloseChannel fun(self: NpcType, callback: function)
----@field onPlayerEndTrade fun(self: NpcType, callback: function)
----@field onThink fun(self: NpcType, callback: function)
----@field onSight fun(self: NpcType, callback: function)
-NpcType = {}
 
 ---@class Guild
 ---@field create fun(): Guild
@@ -783,18 +718,19 @@ Combat = {}
 Condition = {}
 
 ---@class Outfit
----@field lookType number|nil
----@field lookHead number|nil
----@field lookBody number|nil
----@field lookLegs number|nil
----@field lookFeet number|nil
----@field lookAddons number|nil
----@field lookMount number|nil
----@field lookMountHead number|nil
----@field lookMountBody number|nil
----@field lookMountLegs number|nil
----@field lookMountFeet number|nil
----@field lookTypeEx number|nil
+---@field create fun(): Outfit
+---@field lookType number
+---@field lookHead number
+---@field lookBody number
+---@field lookLegs number
+---@field lookFeet number
+---@field lookAddons number
+---@field lookMount number
+---@field lookMountHead number
+---@field lookMountBody number
+---@field lookMountLegs number
+---@field lookMountFeet number
+---@field lookTypeEx number
 Outfit = {}
 
 ---@class MonsterType
@@ -1002,6 +938,7 @@ TalkAction = {}
 ---@field register fun(self:CreatureEvent):boolean
 ---@field onLogin fun(player:Player):boolean
 ---@field onLogout fun(player:Player):boolean
+---@field onReconnect fun(player:Player)
 ---@field onThink fun(creature:Creature, interval:integer):boolean
 ---@field onPrepareDeath fun(creature:Creature, killer:Creature):boolean
 ---@field onDeath fun(creature:Creature, corpse:Item, killer:Creature, mostDamageKiller:Creature, lastHitUnjustified:boolean, mostDamageUnjustified:boolean):boolean
@@ -1109,8 +1046,8 @@ Weapon = {}
 ---@field onLookInBattleList fun(player:Player, creature:Creature, distance:integer, description?:string):string
 ---@field onLookInTrade fun(player:Player, partner:Player, item:Item, distance:integer, description?:string):string
 ---@field onLookInShop fun(player:Player, itemType:ItemType, count:integer, description?:string):string
----@field onMoveItem fun(player:Player, item:Item, count:integer, fromPosition:Position, toPosition:Position, fromCylinder?:Thing, toCylinder?:Thing):integer
----@field onItemMoved fun(player:Player, item:Item, count:integer, fromPosition:Position, toPosition:Position, fromCylinder?:Thing, toCylinder?:Thing):nil
+---@field onMoveItem fun(player:Player, item:Item, count:integer, fromPosition:Position, toPosition:Position, fromThing?:Thing, toThing?:Thing):integer
+---@field onItemMoved fun(player:Player, item:Item, count:integer, fromPosition:Position, toPosition:Position, fromThing?:Thing, toThing?:Thing):nil
 ---@field onMoveCreature fun(player:Player, creature:Creature, fromPosition:Position, toPosition:Position):boolean
 ---@field onReportRuleViolation fun(player:Player, targetName:string, reportType:integer, reportReason:integer, comment:string, translation:string):nil
 ---@field onReportBug fun(player:Player, message:string, position:Position, category:any):boolean
@@ -1309,8 +1246,7 @@ function isScriptsInterface() end
 ---@alias isScriptsInterface fun(): boolean
 
 function getNpcCid() end
-function selfSay(message, player, talkType) end
----@alias selfSay fun(message: string, player?: number, talkType?: number)
+function selfSay(message, player) end
 function selfMove(direction) end
 function selfMoveTo(...) end
 function selfTurn(direction) end
@@ -1319,7 +1255,7 @@ function getDistanceTo(creature) end
 function doNpcSetCreatureFocus(creature) end
 function getNpcParameter(key) end
 function openShopWindow(shopWindow) end
-function closeShopWindow(player) end
+function closeShopWindow() end
 function doSellItem(item) end
 
 storages = {}
@@ -2246,27 +2182,26 @@ configKeys = {
 	FRAG_TIME = 21,
 	WHITE_SKULL_TIME = 22,
 	GAME_PORT = 23,
-	LOGIN_PORT = 24,
-	STATUS_PORT = 25,
-	HTTP_PORT = 26,
-	HTTP_WORKERS = 27,
-	STAIRHOP_DELAY = 28,
-	MARKET_OFFER_DURATION = 29,
-	CHECK_EXPIRED_MARKET_OFFERS_EACH_MINUTES = 30,
-	MAX_MARKET_OFFERS_AT_A_TIME_PER_PLAYER = 31,
-	EXP_FROM_PLAYERS_LEVEL_RANGE = 32,
-	MAX_PACKETS_PER_SECOND = 33,
-	SERVER_SAVE_NOTIFY_DURATION = 34,
-	YELL_MINIMUM_LEVEL = 35,
-	MINIMUM_LEVEL_TO_SEND_PRIVATE = 36,
-	VIP_FREE_LIMIT = 37,
-	VIP_PREMIUM_LIMIT = 38,
-	DEPOT_FREE_LIMIT = 39,
-	DEPOT_PREMIUM_LIMIT = 40,
-	QUEST_TRACKER_FREE_LIMIT = 41,
-	QUEST_TRACKER_PREMIUM_LIMIT = 42,
-	STAMINA_REGEN_MINUTE = 43,
-	STAMINA_REGEN_PREMIUM = 44,
+	STATUS_PORT = 24,
+	HTTP_PORT = 25,
+	HTTP_WORKERS = 26,
+	STAIRHOP_DELAY = 27,
+	MARKET_OFFER_DURATION = 28,
+	CHECK_EXPIRED_MARKET_OFFERS_EACH_MINUTES = 29,
+	MAX_MARKET_OFFERS_AT_A_TIME_PER_PLAYER = 30,
+	EXP_FROM_PLAYERS_LEVEL_RANGE = 31,
+	MAX_PACKETS_PER_SECOND = 32,
+	SERVER_SAVE_NOTIFY_DURATION = 33,
+	YELL_MINIMUM_LEVEL = 34,
+	MINIMUM_LEVEL_TO_SEND_PRIVATE = 35,
+	VIP_FREE_LIMIT = 36,
+	VIP_PREMIUM_LIMIT = 37,
+	DEPOT_FREE_LIMIT = 38,
+	DEPOT_PREMIUM_LIMIT = 39,
+	QUEST_TRACKER_FREE_LIMIT = 40,
+	QUEST_TRACKER_PREMIUM_LIMIT = 41,
+	STAMINA_REGEN_MINUTE = 42,
+	STAMINA_REGEN_PREMIUM = 43,
 }
 
 ITEM_TYPE_NONE = 0

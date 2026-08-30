@@ -15,25 +15,24 @@ class DepotLocker final : public Container
 public:
 	explicit DepotLocker(uint16_t type);
 
-	DepotLocker* getDepotLocker() override { return this; }
-	const DepotLocker* getDepotLocker() const override { return this; }
-
 	void removeInbox(Inbox* inbox);
-
-	// serialization
-	Attr_ReadValue readAttr(AttrTypes_t attr, PropStream& propStream) override;
-
 	uint16_t getDepotId() const { return depotId; }
 	void setDepotId(uint16_t depotId) { this->depotId = depotId; }
 
-	// cylinder implementations
-	ReturnValue queryAdd(int32_t index, const Thing& thing, uint32_t count, uint32_t flags,
-	                     Creature* actor = nullptr) const override;
+	Attr_ReadValue readAttr(AttrTypes_t attr, PropStream& propStream) override;
 
-	void postAddNotification(Thing* thing, const Cylinder* oldParent, int32_t index,
-	                         cylinderlink_t link = LINK_OWNER) override;
-	void postRemoveNotification(Thing* thing, const Cylinder* newParent, int32_t index,
-	                            cylinderlink_t link = LINK_OWNER) override;
+	DepotLocker* getDepotLocker() override { return this; }
+	const DepotLocker* getDepotLocker() const override { return this; }
+
+	ReturnValue queryAdd(int32_t, const Thing&, uint32_t, uint32_t, Creature* = nullptr) const override
+	{
+		return RETURNVALUE_NOTENOUGHROOM;
+	}
+
+	void postAddNotification(Thing* thing, const Thing* oldParent, int32_t index,
+	                         ReceiverLink_t link = LINK_OWNER) override;
+	void postRemoveNotification(Thing* thing, const Thing* newParent, int32_t index,
+	                            ReceiverLink_t link = LINK_OWNER) override;
 
 	bool canRemove() const override { return false; }
 

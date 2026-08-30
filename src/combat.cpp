@@ -14,7 +14,6 @@
 
 extern Game g_game;
 extern Weapons* g_weapons;
-extern Events* g_events;
 
 std::vector<Tile*> getList(const MatrixArea& area, const Position& targetPos, const Direction dir)
 {
@@ -261,7 +260,7 @@ ReturnValue Combat::canDoCombat(Creature* caster, Tile* tile, bool aggressive)
 		return RETURNVALUE_ACTIONNOTPERMITTEDINPROTECTIONZONE;
 	}
 
-	return g_events->eventCreatureOnAreaCombat(caster, tile, aggressive);
+	return tfs::events::creature::onAreaCombat(caster, tile, aggressive);
 }
 
 bool Combat::isInPvpZone(const Creature* attacker, const Creature* target)
@@ -290,7 +289,7 @@ bool Combat::isProtected(const Player* attacker, const Player* target)
 ReturnValue Combat::canDoCombat(Creature* attacker, Creature* target)
 {
 	if (!attacker) {
-		return g_events->eventCreatureOnTargetCombat(attacker, target);
+		return tfs::events::creature::onTargetCombat(attacker, target);
 	}
 
 	if (const Player* targetPlayer = target->getPlayer()) {
@@ -369,7 +368,7 @@ ReturnValue Combat::canDoCombat(Creature* attacker, Creature* target)
 			}
 		}
 	}
-	return g_events->eventCreatureOnTargetCombat(attacker, target);
+	return tfs::events::creature::onTargetCombat(attacker, target);
 }
 
 void Combat::setPlayerCombatValues(formulaType_t formulaType, double mina, double minb, double maxa, double maxb)
@@ -844,7 +843,7 @@ void Combat::doTargetCombat(Creature* caster, Creature* target, CombatDamage& da
 			g_game.addMagicEffect(target->getPosition(), CONST_ME_CRITICAL_DAMAGE);
 		}
 
-		if (!damage.leeched && damage.primary.type != COMBAT_HEALING && casterPlayer &&
+		if (!damage.leeched && damage.primary.type != COMBAT_HEALING && casterPlayer && target != caster &&
 		    damage.origin != ORIGIN_CONDITION) {
 			CombatDamage leechCombat;
 			leechCombat.origin = ORIGIN_NONE;
